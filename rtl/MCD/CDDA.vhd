@@ -43,6 +43,8 @@ architecture rtl of CD_DAC is
 	
 	signal OUTL 		: signed(15 downto 0);
 	signal OUTR 		: signed(15 downto 0);
+	signal OUTL_OLD		: signed(15 downto 0);
+	signal OUTR_OLD		: signed(15 downto 0);
 	
 	signal CDDA_REF   : integer;
 
@@ -127,13 +129,15 @@ begin
 		elsif rising_edge(CLK) then
 			RD_REQ <= '0';
 			if EN = '1' and SAMPLE_CE = '1' then	-- ~44.1kHz
+				OUTL_OLD <= OUTL;
+				OUTR_OLD <= OUTR;
 				if EMPTY = '0' then
 					RD_REQ <= '1';
 					OUTL <= resize(shift_right(signed(FIFO_Q(15 downto 0)) * signed(ATT_CUR), 10), OUTL'length);
 					OUTR <= resize(shift_right(signed(FIFO_Q(31 downto 16)) * signed(ATT_CUR), 10), OUTR'length);
 				else
-					OUTL <= (others => '0');
-					OUTR <= (others => '0');
+					OUTL <= OUTL_OLD;
+					OUTR <= OUTR_OLD;
 				end if;
 				
 				if ATT_CUR(10 downto 0) > ATT then
