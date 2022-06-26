@@ -120,7 +120,7 @@ begin
 		elsif rising_edge(CLK) then
 			RD_REQ <= '0';
 			if EN = '1' and SAMPLE_CE = '1' then	-- ~44.1kHz
-				if EMPTY = '0' then
+				if EMPTY = '0' and FULL = '1' then
 					RD_REQ <= '1';
 				end if;
 				OUTL <= resize(shift_right(signed(FIFO_Q(15 downto 0)) * signed(ATT_CUR), 10), OUTL'length);
