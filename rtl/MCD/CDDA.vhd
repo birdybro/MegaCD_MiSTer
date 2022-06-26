@@ -5,9 +5,9 @@ use IEEE.NUMERIC_STD.ALL;
 
 entity CD_DAC is
 	port(
-		CLK			: in std_logic;
+		CLK				: in std_logic;
 		RST_N			: in std_logic;
-		ENABLE		: in std_logic;
+		ENABLE			: in std_logic;
 		
 		PALSW			: in std_logic;
 		
@@ -39,12 +39,12 @@ architecture rtl of CD_DAC is
 	signal SAMPLE_CE 	: std_logic;
 
 	signal ATT 			: unsigned(10 downto 0);
-	signal ATT_CUR 	: unsigned(11 downto 0);
+	signal ATT_CUR 		: unsigned(11 downto 0);
 	
 	signal OUTL 		: signed(15 downto 0);
 	signal OUTR 		: signed(15 downto 0);
 	
-	signal CDDA_REF   : integer;
+	signal CDDA_REF		: integer;
 
 begin
 
@@ -122,10 +122,10 @@ begin
 			if EN = '1' and SAMPLE_CE = '1' then	-- ~44.1kHz
 				if EMPTY = '0' then
 					RD_REQ <= '1';
-					OUTL <= resize(shift_right(signed(FIFO_Q(15 downto 0)) * signed(ATT_CUR), 10), OUTL'length);
-					OUTR <= resize(shift_right(signed(FIFO_Q(31 downto 16)) * signed(ATT_CUR), 10), OUTR'length);
 				end if;
-				
+				OUTL <= resize(shift_right(signed(FIFO_Q(15 downto 0)) * signed(ATT_CUR), 10), OUTL'length);
+				OUTR <= resize(shift_right(signed(FIFO_Q(31 downto 16)) * signed(ATT_CUR), 10), OUTR'length);
+
 				if ATT_CUR(10 downto 0) > ATT then
 					ATT_CUR <= "0" & (ATT_CUR(10 downto 0) - 1);
 				elsif ATT_CUR(10 downto 0) < ATT then
