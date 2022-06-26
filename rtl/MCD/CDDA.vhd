@@ -120,17 +120,16 @@ begin
 			ATT_CUR <= "010000000000";
 		elsif rising_edge(CLK) then
 			RD_REQ <= '0';
+			PLAYING <= '0';
 			if EN = '1' and SAMPLE_CE = '1' then	-- ~44.1kHz
-				if FULL = '1' and EMPTY = '0' then
+				if FULL = '1' then
 					PLAYING <= '1';
-				else
-					PLAYING <= '0';
 				end if;
 				if EMPTY = '0' and PLAYING = '1' then
 					RD_REQ <= '1';
+					OUTL <= resize(shift_right(signed(FIFO_Q(15 downto  0)) * signed(ATT_CUR), 10), OUTL'length);
+					OUTR <= resize(shift_right(signed(FIFO_Q(31 downto 16)) * signed(ATT_CUR), 10), OUTR'length);
 				end if;
-				OUTL <= resize(shift_right(signed(FIFO_Q(15 downto  0)) * signed(ATT_CUR), 10), OUTL'length);
-				OUTR <= resize(shift_right(signed(FIFO_Q(31 downto 16)) * signed(ATT_CUR), 10), OUTR'length);
 
 				if ATT_CUR(10 downto 0) > ATT then
 					ATT_CUR <= "0" & (ATT_CUR(10 downto 0) - 1);
