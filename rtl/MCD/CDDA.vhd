@@ -37,6 +37,7 @@ architecture rtl of CD_DAC is
 	signal FIFO_D 		: std_logic_vector(31 downto 0);
 	signal FIFO_Q 		: std_logic_vector(31 downto 0);
 	signal SAMPLE_CE 	: std_logic;
+	signal PLAYING      : std_logic;
 
 	signal ATT 			: unsigned(10 downto 0);
 	signal ATT_CUR 		: unsigned(11 downto 0);
@@ -120,10 +121,15 @@ begin
 		elsif rising_edge(CLK) then
 			RD_REQ <= '0';
 			if EN = '1' and SAMPLE_CE = '1' then	-- ~44.1kHz
-				if EMPTY = '0' and FULL = '1' then
+				if FULL = '1' and EMPTY = '0' then
+					PLAYING <= '1';
+				else
+					PLAYING <= '0';
+				end if;
+				if EMPTY = '0' and PLAYING = '1' then
 					RD_REQ <= '1';
 				end if;
-				OUTL <= resize(shift_right(signed(FIFO_Q(15 downto 0)) * signed(ATT_CUR), 10), OUTL'length);
+				OUTL <= resize(shift_right(signed(FIFO_Q(15 downto  0)) * signed(ATT_CUR), 10), OUTL'length);
 				OUTR <= resize(shift_right(signed(FIFO_Q(31 downto 16)) * signed(ATT_CUR), 10), OUTR'length);
 
 				if ATT_CUR(10 downto 0) > ATT then
