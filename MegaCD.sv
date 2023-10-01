@@ -800,11 +800,28 @@ MCD MCD
 	.GG_AVAILABLE(gg_available2)
 );
 
+logic [15:0] mcd_cdda_sl, mcd_cdda_sr;
+fir_filter fir_filter_cdda_L
+(
+	.clk(clk_sys),
+	.reset(reset),
+	.data_in(MCD_CDDA_SL),
+	.data_out(mcd_cdda_sl)
+);
+
+fir_filter fir_filter_cdda_R
+(
+	.clk(clk_sys),
+	.reset(reset),
+	.data_in(MCD_CDDA_SR),
+	.data_out(mcd_cdda_sr)
+);
+
 reg [15:0] aud_l, aud_r;
 reg [15:0] mcd_l, mcd_r;
 always @(posedge clk_sys) begin
-	mcd_l <= ({16{EN_MCD_PCM}} & {MCD_PCM_SL[15],MCD_PCM_SL[15:1]}) + ({16{EN_MCD_CDDA}} & {MCD_CDDA_SL[15],MCD_CDDA_SL[15:1]});
-	mcd_r <= ({16{EN_MCD_PCM}} & {MCD_PCM_SR[15],MCD_PCM_SR[15:1]}) + ({16{EN_MCD_CDDA}} & {MCD_CDDA_SR[15],MCD_CDDA_SR[15:1]});
+	mcd_l <= ({16{EN_MCD_PCM}} & {MCD_PCM_SL[15],MCD_PCM_SL[15:1]}) + ({16{EN_MCD_CDDA}} & {mcd_cdda_sl[15],mcd_cdda_sl[15:1]});
+	mcd_r <= ({16{EN_MCD_PCM}} & {MCD_PCM_SR[15],MCD_PCM_SR[15:1]}) + ({16{EN_MCD_CDDA}} & {mcd_cdda_sr[15],mcd_cdda_sr[15:1]});
 
 	if(~status[27]) begin
 		aud_l <= {GEN_AUDL[15],GEN_AUDL[15:1]} + {mcd_l[15],mcd_l[15:1]};
