@@ -10,16 +10,34 @@ derive_pll_clocks
 derive_clock_uncertainty
 
 # Decouple different clock groups (to simplify routing)
+# NOTE: pll_audio intentionally removed — it has active CDC paths to/from
+# the core PLL via audio_cdc_fifo, constrained by set_max_delay in core SDC.
 set_clock_groups -exclusive \
    -group [get_clocks { *|pll|pll_inst|altera_pll_i|*[*].*|divclk}] \
    -group [get_clocks { pll_hdmi|pll_hdmi_inst|altera_pll_i|*[0].*|divclk}] \
-   -group [get_clocks { pll_audio|pll_audio_inst|altera_pll_i|*[0].*|divclk}] \
    -group [get_clocks { spi_sck}] \
    -group [get_clocks { hdmi_sck}] \
    -group [get_clocks { *|h2f_user0_clk}] \
    -group [get_clocks { FPGA_CLK1_50 }] \
    -group [get_clocks { FPGA_CLK2_50 }] \
    -group [get_clocks { FPGA_CLK3_50 }]
+
+# pll_audio is asynchronous to all groups except the core PLL (which has
+# explicit set_max_delay constraints for the CDC FIFO). Mark all other
+# cross-domain paths to/from pll_audio as false paths so the fitter
+# doesn't waste effort timing them.
+set_false_path -from [get_clocks { pll_audio|pll_audio_inst|altera_pll_i|*[0].*|divclk}] \
+               -to   [get_clocks { pll_hdmi|pll_hdmi_inst|altera_pll_i|*[0].*|divclk}]
+set_false_path -from [get_clocks { pll_hdmi|pll_hdmi_inst|altera_pll_i|*[0].*|divclk}] \
+               -to   [get_clocks { pll_audio|pll_audio_inst|altera_pll_i|*[0].*|divclk}]
+set_false_path -from [get_clocks { pll_audio|pll_audio_inst|altera_pll_i|*[0].*|divclk}] \
+               -to   [get_clocks { spi_sck}]
+set_false_path -from [get_clocks { spi_sck}] \
+               -to   [get_clocks { pll_audio|pll_audio_inst|altera_pll_i|*[0].*|divclk}]
+set_false_path -from [get_clocks { pll_audio|pll_audio_inst|altera_pll_i|*[0].*|divclk}] \
+               -to   [get_clocks { hdmi_sck}]
+set_false_path -from [get_clocks { hdmi_sck}] \
+               -to   [get_clocks { pll_audio|pll_audio_inst|altera_pll_i|*[0].*|divclk}]
 
 set_false_path -from [get_ports {KEY*}]
 set_false_path -from [get_ports {BTN_*}]
