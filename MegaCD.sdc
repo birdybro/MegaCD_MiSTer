@@ -19,5 +19,7 @@ set_max_delay -from [get_registers {*audio_cdc*rd_ptr_gray[*]}] \
               -to   [get_registers {*audio_cdc*rd_ptr_gray_wr1[*]}] 3
 
 # FIFO memory to read-side output register
-set_max_delay -from [get_registers {*audio_cdc*mem[*][*]}] \
+# Quartus flattens 2D register arrays (mem[n][b]) to mem~n[b] or similar,
+# so use a broad wildcard to match regardless of naming convention.
+set_max_delay -from [get_registers {*audio_cdc*mem*}] \
               -to   [get_registers {*audio_cdc*rd_data_r[*]}] 3
