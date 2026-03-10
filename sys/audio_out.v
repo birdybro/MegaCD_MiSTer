@@ -389,17 +389,18 @@ wire [AW:0] rd_ptr_bin_wr = gray2bin(rd_ptr_gray_wr);
 wire wr_full = (wr_ptr_bin[AW] != rd_ptr_bin_wr[AW]) &&
                (wr_ptr_bin[AW-1:0] == rd_ptr_bin_wr[AW-1:0]);
 
-// Write: always store data, advance pointer if not full
+// Write: store data and advance pointer only when not full.
+// Previously wrote mem[] unconditionally every cycle — with clk_wr >2x
+// faster than clk_rd, a full FIFO would overwrite the entry the read
+// side is about to sample, causing cross-domain data corruption.
 always @(posedge clk_wr or posedge reset) begin
 	if (reset) begin
 		wr_ptr_bin  <= 0;
 		wr_ptr_gray <= 0;
-	end else begin
+	end else if (!wr_full) begin
 		mem[wr_ptr_bin[AW-1:0]] <= wr_data;
-		if (!wr_full) begin
-			wr_ptr_bin  <= wr_ptr_bin + 1'd1;
-			wr_ptr_gray <= bin2gray(wr_ptr_bin + 1'd1);
-		end
+		wr_ptr_bin  <= wr_ptr_bin + 1'd1;
+		wr_ptr_gray <= bin2gray(wr_ptr_bin + 1'd1);
 	end
 end
 
