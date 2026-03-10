@@ -395,6 +395,7 @@ always@(posedge clk_sys) begin
 `ifndef MISTER_DEBUG_NOHDMI
 			if(io_din[7:0] == 'h40) io_dout_sys <= fb_crc;
 `endif
+			if(io_din[7:0] == 'h42) io_dout_sys <= {1'b1, frame_cnt};
 		end
 		else begin
 			cnt <= cnt + 1'd1;
@@ -533,6 +534,15 @@ always@(posedge clk_sys) begin
 
 	vs_d2 <= vs_d1;
 	if(~vs_d2 & vs_d1) vs_wait <= 0;
+end
+
+reg [7:0] frame_cnt;
+always @(posedge clk_sys) begin
+	reg vs_r, vs_old;
+	
+	vs_r <= vs_fix;
+	if(vs_r == vs_fix) vs_old <= vs_r;
+	if(~vs_old & vs_r) frame_cnt <= frame_cnt + 1'd1;
 end
 
 cyclonev_hps_interface_peripheral_uart uart
@@ -711,6 +721,9 @@ wire         bob_deint;
 		.DOWNSCALE_NN("true"),
 	`endif
 		.FRAC(8),
+`ifdef MENU_CORE
+		.N_BURST(2048),
+`endif
 		.N_DW(128),
 		.N_AW(28)
 	)
@@ -1536,9 +1549,16 @@ assign SDCD_SPDIF = (mcp_en & ~spdif) ? 1'b0 : 1'bZ;
 `ifndef MISTER_DUAL_SDRAM
 	wire analog_l, analog_r;
 
-	assign AUDIO_SPDIF = av_dis ? 1'bZ : (SW[0] | mcp_en) ? HDMI_LRCLK : spdif;
-	assign AUDIO_R     = av_dis ? 1'bZ : (SW[0] | mcp_en) ? HDMI_I2S   : analog_r;
-	assign AUDIO_L     = av_dis ? 1'bZ : (SW[0] | mcp_en) ? HDMI_SCLK  : analog_l;
+	reg audio_l_r, audio_r_r, audio_spdif_r;
+	always @(posedge clk_audio) begin
+		audio_l_r     <= (SW[0] | mcp_en) ? HDMI_SCLK  : analog_l;
+		audio_r_r     <= (SW[0] | mcp_en) ? HDMI_I2S   : analog_r;
+		audio_spdif_r <= (SW[0] | mcp_en) ? HDMI_LRCLK : spdif;
+	end
+
+	assign AUDIO_SPDIF = av_dis ? 1'bZ : audio_spdif_r;
+	assign AUDIO_R     = av_dis ? 1'bZ : audio_r_r;
+	assign AUDIO_L     = av_dis ? 1'bZ : audio_l_r;
 `endif
 
 assign HDMI_MCLK = clk_audio;
@@ -1556,6 +1576,7 @@ audio_out audio_out
 (
 	.reset(reset | areset),
 	.clk(clk_audio),
+	.clk_core(clk_sys),
 
 	.att(vol_att),
 	.mix(audio_mix),

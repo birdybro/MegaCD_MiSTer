@@ -7,6 +7,9 @@ module audio_out
 	input        reset,
 	input        clk,
 
+	// Core clock for async FIFO write side
+	input        clk_core,
+
 	//0 - 48KHz, 1 - 96KHz
 	input        sample_rate,
 
@@ -140,17 +143,19 @@ always @(posedge clk) begin
 	end
 end
 
-reg [15:0] cl,cr;
-always @(posedge clk) begin
-	reg [15:0] cl1,cl2;
-	reg [15:0] cr1,cr2;
+// Async FIFO: cross {core_l, core_r} from clk_core to clk (clk_audio)
+wire [15:0] cl, cr;
 
-	cl1 <= core_l; cl2 <= cl1;
-	if(cl2 == cl1) cl <= cl2;
+audio_cdc_fifo audio_cdc
+(
+	.reset(reset),
 
-	cr1 <= core_r; cr2 <= cr1;
-	if(cr2 == cr1) cr <= cr2;
-end
+	.clk_wr(clk_core),
+	.wr_data({core_l, core_r}),
+
+	.clk_rd(clk),
+	.rd_data({cl, cr})
+);
 
 reg a_en1 = 0, a_en2 = 0;
 always @(posedge clk, posedge reset) begin
@@ -291,6 +296,121 @@ always @(posedge clk) if (ce) begin
 
 	//clamping
 	out <= ^a4[16:15] ? {a4[16],{15{a4[15]}}} : a4[15:0];
+end
+
+endmodule
+
+
+// Async FIFO for audio CDC (clk_core -> clk_audio)
+//
+// Small 4-entry FIFO with gray-coded pointers. The write side captures
+// audio samples from the core clock domain. The read side provides the
+// latest sample to the audio processing chain in the clk_audio domain.
+//
+// Write policy: write every clk_core cycle, advance pointer when not full.
+// Read policy: advance read pointer when not empty, always presenting the
+// most recently read sample. This ensures the audio chain always has a
+// valid sample and naturally drains since clk_audio consumes samples
+// much slower than clk_core writes them.
+
+module audio_cdc_fifo
+#(
+	parameter DW = 32,
+	parameter AW = 2     // 4 entries
+)
+(
+	input            reset,
+
+	input            clk_wr,
+	input  [DW-1:0]  wr_data,
+
+	input            clk_rd,
+	output [DW-1:0]  rd_data
+);
+
+// Write side (clk_core domain)
+reg [AW:0] wr_ptr_gray = 0;
+reg [AW:0] wr_ptr_bin  = 0;
+
+// Read side (clk_audio domain)
+reg [AW:0] rd_ptr_gray = 0;
+reg [AW:0] rd_ptr_bin  = 0;
+
+// Gray-code synchronized pointers
+reg [AW:0] wr_ptr_gray_rd1 = 0, wr_ptr_gray_rd = 0; // wr pointer synced to rd clock
+reg [AW:0] rd_ptr_gray_wr1 = 0, rd_ptr_gray_wr = 0; // rd pointer synced to wr clock
+
+// FIFO memory — force registers, not block RAM (only 4x32 = 128 bits)
+(* ramstyle = "logic" *) reg [DW-1:0] mem [0:(1<<AW)-1];
+
+// Output register
+reg [DW-1:0] rd_data_r = 0;
+assign rd_data = rd_data_r;
+
+// Sync write pointer to read domain
+always @(posedge clk_rd) begin
+	wr_ptr_gray_rd1 <= wr_ptr_gray;
+	wr_ptr_gray_rd  <= wr_ptr_gray_rd1;
+end
+
+// Sync read pointer to write domain
+always @(posedge clk_wr) begin
+	rd_ptr_gray_wr1 <= rd_ptr_gray;
+	rd_ptr_gray_wr  <= rd_ptr_gray_wr1;
+end
+
+// Binary-to-gray conversion
+function [AW:0] bin2gray;
+	input [AW:0] bin;
+	bin2gray = bin ^ (bin >> 1);
+endfunction
+
+// Gray-to-binary conversion
+function [AW:0] gray2bin;
+	input [AW:0] gray;
+	reg   [AW:0] bin;
+	integer i;
+	begin
+		bin[AW] = gray[AW];
+		for (i = AW-1; i >= 0; i = i - 1)
+			bin[i] = bin[i+1] ^ gray[i];
+		gray2bin = bin;
+	end
+endfunction
+
+// Write side: full detection using gray-coded pointers
+wire [AW:0] rd_ptr_bin_wr = gray2bin(rd_ptr_gray_wr);
+wire wr_full = (wr_ptr_bin[AW] != rd_ptr_bin_wr[AW]) &&
+               (wr_ptr_bin[AW-1:0] == rd_ptr_bin_wr[AW-1:0]);
+
+// Write: always store data, advance pointer if not full
+always @(posedge clk_wr or posedge reset) begin
+	if (reset) begin
+		wr_ptr_bin  <= 0;
+		wr_ptr_gray <= 0;
+	end else begin
+		mem[wr_ptr_bin[AW-1:0]] <= wr_data;
+		if (!wr_full) begin
+			wr_ptr_bin  <= wr_ptr_bin + 1'd1;
+			wr_ptr_gray <= bin2gray(wr_ptr_bin + 1'd1);
+		end
+	end
+end
+
+// Read side: empty detection
+wire rd_empty = (rd_ptr_gray == wr_ptr_gray_rd);
+
+// Read: advance pointer and capture data when not empty
+always @(posedge clk_rd or posedge reset) begin
+	if (reset) begin
+		rd_ptr_bin  <= 0;
+		rd_ptr_gray <= 0;
+		rd_data_r   <= 0;
+	end else if (!rd_empty) begin
+		rd_data_r   <= mem[rd_ptr_bin[AW-1:0]];
+		rd_ptr_bin  <= rd_ptr_bin + 1'd1;
+		rd_ptr_gray <= bin2gray(rd_ptr_bin + 1'd1);
+	end
 end
 
 endmodule
