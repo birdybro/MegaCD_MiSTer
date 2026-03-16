@@ -23,6 +23,7 @@ module audio_out
 	input  [1:0] mix,
 
 	input        is_signed,
+	input        clk_core,
 	input [15:0] core_l,
 	input [15:0] core_r,
 
@@ -140,16 +141,34 @@ always @(posedge clk) begin
 	end
 end
 
-reg [15:0] cl,cr;
+// MCP formulation for multi-bit CDC (Cummings SNUG-2008 Section 5.6.1).
+// Only a 1-bit toggle is synchronized; multi-bit data crosses unsynchronized
+// but is guaranteed stable by the time the toggle edge is detected, because
+// the toggle takes 2-3 clk cycles to propagate while data settles in one.
+reg [15:0] core_l_r = 0, core_r_r = 0;
+reg [15:0] core_l_prev = 0, core_r_prev = 0;
+reg        core_tog = 0;
+always @(posedge clk_core) begin
+	core_l_r    <= core_l;
+	core_r_r    <= core_r;
+	core_l_prev <= core_l_r;
+	core_r_prev <= core_r_r;
+	if (core_l_prev != core_l_r || core_r_prev != core_r_r)
+		core_tog <= ~core_tog;
+end
+
+reg [15:0] cl = 0, cr = 0;
 always @(posedge clk) begin
-	reg [15:0] cl1,cl2;
-	reg [15:0] cr1,cr2;
+	reg tog_s1, tog_s2, tog_prev;
 
-	cl1 <= core_l; cl2 <= cl1;
-	if(cl2 == cl1) cl <= cl2;
+	tog_s1   <= core_tog;
+	tog_s2   <= tog_s1;
+	tog_prev <= tog_s2;
 
-	cr1 <= core_r; cr2 <= cr1;
-	if(cr2 == cr1) cr <= cr2;
+	if (tog_s2 ^ tog_prev) begin
+		cl <= core_l_r;
+		cr <= core_r_r;
+	end
 end
 
 reg a_en1 = 0, a_en2 = 0;
