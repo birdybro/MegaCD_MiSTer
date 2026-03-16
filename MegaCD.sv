@@ -846,8 +846,19 @@ always @(posedge clk_sys) begin
 	cmp_r <= compr(aud_r);
 end
 
-assign AUDIO_L = status[58:57] ? cmp_l : aud_l;
-assign AUDIO_R = status[58:57] ? cmp_r : aud_r;
+wire [15:0] audio_pre_l = status[58:57] ? cmp_l : aud_l;
+wire [15:0] audio_pre_r = status[58:57] ? cmp_r : aud_r;
+
+audio_cdc audio_cdc
+(
+	.wclk(clk_sys),
+	.wreset(reset),
+	.data_in({audio_pre_r, audio_pre_l}),
+
+	.rclk(CLK_AUDIO),
+	.rreset(reset),
+	.data_out({AUDIO_R, AUDIO_L})
+);
 
 
 //ROM/RAM Cart
