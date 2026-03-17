@@ -1573,6 +1573,7 @@ audio_out audio_out
 	.is_signed(audio_s),
 	.core_l(audio_l),
 	.core_r(audio_r),
+	.core_ce(audio_ce),
 
 `ifndef MISTER_DISABLE_ALSA
 	.alsa_l(alsa_l),
@@ -1655,6 +1656,7 @@ wire        clk_sys;
 wire [15:0] audio_l, audio_r;
 wire        audio_s;
 wire  [1:0] audio_mix;
+wire        audio_ce;
 wire  [1:0] scanlines;
 wire  [7:0] r_out, g_out, b_out, hr_out, hg_out, hb_out;
 wire        vs_fix, hs_fix, de_emu, vs_emu, hs_emu, f1;
@@ -1795,6 +1797,7 @@ emu emu
 	.AUDIO_R(audio_r),
 	.AUDIO_S(audio_s),
 	.AUDIO_MIX(audio_mix),
+	.AUDIO_CE(audio_ce),
 
 	.ADC_BUS({ADC_SCK,ADC_SDO,ADC_SDI,ADC_CONVST}),
 

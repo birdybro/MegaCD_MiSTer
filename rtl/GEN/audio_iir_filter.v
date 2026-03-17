@@ -33,13 +33,18 @@ module iir_1st_order
 	input [COUNT_BITS - 1 : 0] div,
 	input signed [COEFF_WIDTH - 1 : 0] A2, B1, B2,
    input signed [DATA_WIDTH - 1 :0] in,
-   output [DATA_WIDTH - 1:0] out
+   output [DATA_WIDTH - 1:0] out,
+   output tick
 );
 
 	reg signed [DATA_WIDTH-1:0] x0,x1,y0;
 	reg signed [DATA_WIDTH + COEFF_WIDTH - 1 : 0] out32;
 	reg [COUNT_BITS - 1:0] count;
- 
+	reg tick_toggle = 0;
+
+	assign out = y0;
+	assign tick = tick_toggle;
+
  // Usage:
  // Design your 1st order iir low/high-pass with a tool that will give you the
  // filter coefficients for the difference equation.  Filter coefficients can
@@ -65,9 +70,7 @@ module iir_1st_order
  //
  // COEFF_WIDTH must be at least COEFF_SCALE+1 and must be large enough to
  // handle temporary overflow during this computation: out32 <= (B1*x0 + B2*x1) - A2*y0
- 
-	assign out = y0;
- 
+
 	always @ (*) begin
 		out32 <= (B1*x0 + B2*x1) - A2*y0; //Previous output is y0 not y1
 	end
@@ -78,6 +81,7 @@ module iir_1st_order
 			x0 <= 0;
 			x1 <= 0;
 			y0 <= 0;
+			tick_toggle <= 0;
 		end
 		else begin
 			count <= count + 1'd1;
@@ -87,6 +91,8 @@ module iir_1st_order
 					x1 <= x0;
 					x0 <= in;
 			end
+			if (count == (div >> 1))
+					tick_toggle <= ~tick_toggle;
 		end
 	end
 	

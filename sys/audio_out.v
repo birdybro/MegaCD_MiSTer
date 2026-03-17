@@ -25,6 +25,7 @@ module audio_out
 	input        is_signed,
 	input [15:0] core_l,
 	input [15:0] core_r,
+	input        core_ce,
 
 	input [15:0] alsa_l,
 	input [15:0] alsa_r,
@@ -141,15 +142,37 @@ always @(posedge clk) begin
 end
 
 reg [15:0] cl,cr;
+reg ce_s1 = 0, ce_s2 = 0, ce_prev = 0;
 always @(posedge clk) begin
-	reg [15:0] cl1,cl2;
-	reg [15:0] cr1,cr2;
+	reg [15:0] cl1,cl2,cl3;
+	reg [15:0] cr1,cr2,cr3;
+	reg  [9:0] stale;
 
-	cl1 <= core_l; cl2 <= cl1;
-	if(cl2 == cl1) cl <= cl2;
+	ce_s1   <= core_ce;
+	ce_s2   <= ce_s1;
+	ce_prev <= ce_s2;
 
-	cr1 <= core_r; cr2 <= cr1;
-	if(cr2 == cr1) cr <= cr2;
+	cl1 <= core_l; cl2 <= cl1; cl3 <= cl2;
+	cr1 <= core_r; cr2 <= cr1; cr3 <= cr2;
+
+	if (ce_s2 ^ ce_prev) begin
+		cl    <= core_l;
+		cr    <= core_r;
+		stale <= 0;
+	end
+	else if (cl3 == cl2 && cl2 == cl1 && cr3 == cr2 && cr2 == cr1) begin
+		cl    <= cl3;
+		cr    <= cr3;
+		stale <= 0;
+	end
+	else begin
+		stale <= stale + 1'd1;
+		if (stale[9]) begin
+			cl    <= cl3;
+			cr    <= cr3;
+			stale <= 0;
+		end
+	end
 end
 
 reg a_en1 = 0, a_en2 = 0;

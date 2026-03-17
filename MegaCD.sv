@@ -108,6 +108,7 @@ module emu
 	output [15:0] AUDIO_R,
 	output        AUDIO_S,   // 1 - signed audio samples, 0 - unsigned
 	output  [1:0] AUDIO_MIX, // 0 - no mix, 1 - 25%, 2 - 50%, 3 - 100% (mono)
+	output        AUDIO_CE,  // 1-bit toggle at midpoint of each audio sample's stable window
 
 	//ADC
 	inout   [3:0] ADC_BUS,
@@ -194,6 +195,8 @@ assign HDMI_BOB_DEINT = 0;
 
 assign AUDIO_S   = 1;
 assign AUDIO_MIX = 0;
+//assign AUDIO_CE = 0; // no toggle — framework falls back to 3-FF stereo coherence check
+assign AUDIO_CE  = gen_audio_tick;
 wire [1:0] ar = status[50:49];
 wire [7:0] arx,ary;
 
@@ -595,6 +598,7 @@ wire EN_VDP_SPR  = ~status[38] | ~dbg_menu;
 wire MCD_BANK23  = ~status[39] | ~dbg_menu;
 
 wire gg_available1;
+wire gen_audio_tick;
 
 gen gen
 (
@@ -634,6 +638,7 @@ gen gen
 
 	.DAC_LDATA(GEN_AUDL),
 	.DAC_RDATA(GEN_AUDR),
+	.AUDIO_TICK(gen_audio_tick),
 
 	.RED(r),
 	.GREEN(g),

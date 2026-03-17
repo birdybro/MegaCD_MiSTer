@@ -29,7 +29,8 @@ module genesis_lpf(
 	input reset,
 	input [1:0] lpf_mode,
    input signed [15:0] in,
-   output signed [15:0] out);
+   output signed [15:0] out,
+   output lpf_tick);
 	
 	reg [9:0] div = 504; //For genesis we'll sample at 53.69mhz/504 = 106528 Hz
 	
@@ -73,7 +74,8 @@ module genesis_lpf(
 								.B1(B1),
 								.B2(B2),
 								.in(in),
-								.out(audio_post_lpf1)); 
+								.out(audio_post_lpf1),
+								.tick(lpf_tick));
 	 
 	assign out = ( lpf_mode[1:0] == 2'b11 ) ? in : audio_post_lpf1;
 
